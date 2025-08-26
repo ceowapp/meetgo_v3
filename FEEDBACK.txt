@@ -1,0 +1,24 @@
+- Lỗi ui chuyển ngữ -> đã fix
+
+- Lỗi referral link => đã fix
+
+- Phần đổi link/miền
+
+Confirm giúp em tên miền đổi thành meetgo.io và toàn bộ link đến chính sách bảo mật, điều khoản quy định chung, hướng dẫn sử dụng chuyển sang miền này hay thế nào anh nhé
+https://meetgo.io/huong-dan-su-dung
+https://meetgo.io/chinh-sach-bao-mat
+https://meetgo.io/chinh-sach-quy-dinh-chung
+
+- Phần màn hình chuyển giao điểm đang bị nhầm sang điểm cổ phần 
+=> bên backend kiểm tra lại api endpoint này nhé
+/v1/point/historyTransferMeetPoint
+
+- Về phần thông báo hiện tại màn hình trắng/màn hình chờ 
+=> tính năng này chưa triển khai
+
+- Lỗi không click được shop icon từ tab location tìm kiếm
+=> check lại vẫn click bình thường
+
+- Lỗi không earn được mặc dù khoảng cách 60m
+
+=> backend kiểm tra lại check khoảng cách tọa độ api endpoint /v1/earn/startEarn
