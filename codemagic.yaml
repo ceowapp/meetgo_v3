@@ -27,13 +27,45 @@ workflows:
         script: |
           npm install && npx patch-package
           cd ios && pod install && cd ..
+          
       - name: Set up provisioning profiles settings on Xcode project
         script: xcode-project use-profiles --project ios/*.xcodeproj
+        
       - name: Increment build number
         script: |
           cd ios
+          # Get the latest build number from App Store Connect
           LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID")
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(($LATEST_BUILD_NUMBER + 1))" meetgo/Info.plist
+          echo "Latest build number from App Store: $LATEST_BUILD_NUMBER"
+          
+          # Calculate new build number
+          NEW_BUILD_NUMBER=$((LATEST_BUILD_NUMBER + 1))
+          echo "New build number will be: $NEW_BUILD_NUMBER"
+          
+          # Update Info.plist with new build number
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $NEW_BUILD_NUMBER" meetgo/Info.plist
+          
+          # Verify the update
+          echo "Updated CFBundleVersion to: $(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" meetgo/Info.plist)"
+          
+      - name: Add GoogleService-Info.plist
+        script: |
+          # Add GoogleService-Info.plist to fix Firebase configuration
+          # Make sure you have uploaded GoogleService-Info.plist as a secure file in Codemagic
+          echo "Adding GoogleService-Info.plist to ios/meetgo/"
+          
+          # If you have the file as a secure file in Codemagic:
+          # cp $CM_BUILD_DIR/GoogleService-Info.plist ios/meetgo/GoogleService-Info.plist
+          
+          # Or if it's in your repository but gitignored, you might need to create it:
+          # For now, let's check if it exists
+          if [ ! -f "ios/meetgo/GoogleService-Info.plist" ]; then
+            echo "WARNING: GoogleService-Info.plist not found. Firebase features may not work."
+            echo "Please add GoogleService-Info.plist as a secure file in Codemagic settings."
+          else
+            echo "GoogleService-Info.plist found successfully"
+          fi
+          
       - name: Build ipa for distribution
         script: |
           xcode-project build-ipa \
@@ -53,14 +85,8 @@ workflows:
           failure: false
       app_store_connect:
         auth: integration
-
-        # Configuration related to TestFlight (optional)
-        # Note: This action is performed during post-processing.
         submit_to_testflight: true
-        beta_groups: # Specify the names of beta tester groups that will get access to the build once it has passed beta review.
+        beta_groups:
           - app-beta
           - meetgo-beta-02
-
-        # Configuration related to App Store (optional)
-        # Note: This action is performed during post-processing.
         submit_to_app_store: false
