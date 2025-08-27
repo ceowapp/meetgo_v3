@@ -29,16 +29,6 @@ workflows:
           npm install && npx patch-package
           cd ios && pod install && cd ..
           
-      - name: Set up code signing
-        script: |
-          # Fetch signing files from App Store Connect
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --create
-          
-          # Set up code signing settings
-          xcode-project use-profiles
-          
       - name: Update Pod targets and Swift optimization
         script: |
           cd ios
@@ -53,41 +43,6 @@ workflows:
           find . -name "*.xcconfig" -exec sed -i '' 's/SWIFT_OPTIMIZATION_LEVEL = -O[a-z]*;/SWIFT_OPTIMIZATION_LEVEL = -Onone;/g' {} \;
           cd ..
           
-      - name: Generate exportOptions.plist
-        script: |
-          cat > ios/exportOptions.plist << EOL
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>method</key>
-              <string>development</string>
-              <key>teamID</key>
-              <string>$TEAM_ID</string>
-              <key>provisioningProfiles</key>
-              <dict>
-                  <key>$BUNDLE_ID</key>
-                  <string>Provisioning Profile</string>
-              </dict>
-              <key>signingCertificate</key>
-              <string>Apple Development</string>
-              <key>signingStyle</key>
-              <string>manual</string>
-              <key>stripSwiftSymbols</key>
-              <true/>
-              <key>uploadBitcode</key>
-              <false/>
-              <key>uploadSymbols</key>
-              <true/>
-              <key>compileBitcode</key>
-              <false/>
-          </dict>
-          </plist>
-          EOL
-          
-          echo "Generated exportOptions.plist:"
-          cat ios/exportOptions.plist
-          
       - name: Build iOS app
         script: |
           mkdir -p build
@@ -101,7 +56,7 @@ workflows:
           -scheme "$XCODE_SCHEME" \
           -configuration Release
           
-          # Build archive
+          # Build archive with automatic signing
           xcodebuild \
           -workspace "$XCODE_WORKSPACE" \
           -scheme "$XCODE_SCHEME" \
@@ -111,6 +66,7 @@ workflows:
           IPHONEOS_DEPLOYMENT_TARGET=15.5 \
           DEVELOPMENT_TEAM="$TEAM_ID" \
           SWIFT_OPTIMIZATION_LEVEL="-Onone" \
+          CODE_SIGN_STYLE=Automatic \
           -allowProvisioningUpdates \
           archive | tee xcodebuild.log
           
@@ -118,19 +74,36 @@ workflows:
           if [ -d "build/meetgo.xcarchive" ]; then
             echo "Archive created successfully"
             
-            # Show content of the archive
-            echo "Archive contents:"
-            ls -la build/meetgo.xcarchive/Products/Applications/
-            
-            # Export the archive
+            # Export with automatic signing
             xcodebuild \
             -exportArchive \
             -archivePath build/meetgo.xcarchive \
-            -exportOptionsPlist ios/exportOptions.plist \
             -exportPath build/ios \
+            -exportOptionsPlist <(cat << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>development</string>
+              <key>teamID</key>
+              <string>$TEAM_ID</string>
+              <key>signingStyle</key>
+              <string>automatic</string>
+              <key>stripSwiftSymbols</key>
+              <true/>
+              <key>uploadBitcode</key>
+              <false/>
+              <key>uploadSymbols</key>
+              <true/>
+              <key>compileBitcode</key>
+              <false/>
+          </dict>
+          </plist>
+          EOF
+          ) \
             -allowProvisioningUpdates
             
-            # Check export status
             if [ $? -eq 0 ]; then
               echo "Export successful"
               ls -la build/ios/
@@ -146,8 +119,6 @@ workflows:
     artifacts:
       - build/ios/*.ipa
       - xcodebuild.log
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
     publishing:
       email:
         recipients:
