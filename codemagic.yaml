@@ -110,17 +110,17 @@ workflows:
           echo "Loading Firebase configuration..."
           
           # Ensure the ios directory exists
-          mkdir -p $CM_BUILD_DIR/ios
+          mkdir -p $CM_BUILD_DIR/ios/Runner
           
           # Write the Firebase config file
-          echo "$IOS_FIREBASE_SECRET" > $CM_BUILD_DIR/ios/GoogleService-Info.plist
+          echo "$IOS_FIREBASE_SECRET" > $CM_BUILD_DIR/ios/Runner/GoogleService-Info.plist
           
           # Verify the file was created and has content
-          if [ -f "$CM_BUILD_DIR/ios/GoogleService-Info.plist" ]; then
+          if [ -f "$CM_BUILD_DIR/ios/Runner/GoogleService-Info.plist" ]; then
             echo "✅ GoogleService-Info.plist created successfully"
-            echo "File size: $(wc -c < $CM_BUILD_DIR/ios/GoogleService-Info.plist) bytes"
+            echo "File size: $(wc -c < $CM_BUILD_DIR/ios/Runner/GoogleService-Info.plist) bytes"
             echo "First few lines:"
-            head -5 $CM_BUILD_DIR/ios/GoogleService-Info.plist
+            head -5 $CM_BUILD_DIR/ios/Runner/GoogleService-Info.plist
           else
             echo "❌ Failed to create GoogleService-Info.plist"
             exit 1
@@ -128,7 +128,7 @@ workflows:
           
           # Also copy to the meetgo subdirectory if it exists
           if [ -d "$CM_BUILD_DIR/ios/meetgo" ]; then
-            cp $CM_BUILD_DIR/ios/GoogleService-Info.plist $CM_BUILD_DIR/ios/meetgo/
+            cp $CM_BUILD_DIR/ios/Runner/GoogleService-Info.plist $CM_BUILD_DIR/ios/meetgo/
             echo "✅ Also copied to ios/meetgo/ directory"
           fi
           
