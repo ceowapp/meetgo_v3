@@ -34,48 +34,90 @@ workflows:
       - name: Increment build number
         script: |
           cd ios
+          
           # Get the latest build number from App Store Connect
+          echo "Fetching latest build number from App Store Connect..."
           LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID")
           echo "Latest build number from App Store: $LATEST_BUILD_NUMBER"
           
-          # Calculate new build number
+          # Validate that we got a valid number
+          if ! [[ "$LATEST_BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "Error: Could not fetch valid build number. Using fallback method."
+            LATEST_BUILD_NUMBER=14  # Based on your error message
+          fi
+          
+          # Calculate new build number (ensure it's higher than 14)
           NEW_BUILD_NUMBER=$((LATEST_BUILD_NUMBER + 1))
+          
+          # Ensure minimum build number is higher than current App Store version
+          if [ "$NEW_BUILD_NUMBER" -le 14 ]; then
+            NEW_BUILD_NUMBER=15
+          fi
+          
           echo "New build number will be: $NEW_BUILD_NUMBER"
           
           # Update Info.plist with new build number
+          echo "Updating CFBundleVersion in Info.plist..."
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $NEW_BUILD_NUMBER" meetgo/Info.plist
           
           # Verify the update
-          echo "Updated CFBundleVersion to: $(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" meetgo/Info.plist)"
+          UPDATED_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" meetgo/Info.plist)
+          echo "Successfully updated CFBundleVersion to: $UPDATED_VERSION"
+          
+          # Also update the project.pbxproj file to ensure consistency
+          echo "Updating project.pbxproj with new build number..."
+          sed -i '' "s/CURRENT_PROJECT_VERSION = [0-9]*/CURRENT_PROJECT_VERSION = $NEW_BUILD_NUMBER/g" meetgo.xcodeproj/project.pbxproj
+          
+          # Verify project.pbxproj update
+          if grep -q "CURRENT_PROJECT_VERSION = $NEW_BUILD_NUMBER" meetgo.xcodeproj/project.pbxproj; then
+            echo "Successfully updated CURRENT_PROJECT_VERSION in project.pbxproj"
+          else
+            echo "Warning: Could not verify project.pbxproj update"
+          fi
           
       - name: Add GoogleService-Info.plist
         script: |
           # Add GoogleService-Info.plist to fix Firebase configuration
-          # Make sure you have uploaded GoogleService-Info.plist as a secure file in Codemagic
-          echo "Adding GoogleService-Info.plist to ios/"
+          echo "Checking for GoogleService-Info.plist..."
           
-          # If you have the file as a secure file in Codemagic:
-          # cp $CM_BUILD_DIR/GoogleService-Info.plist ios/meetgo/GoogleService-Info.plist
-          
-          # Or if it's in your repository but gitignored, you might need to create it:
-          # For now, let's check if it exists
-          if [ ! -f "ios/GoogleService-Info.plist" ]; then
+          # Check if GoogleService-Info.plist exists as a secure file
+          if [ -f "$CM_BUILD_DIR/GoogleService-Info.plist" ]; then
+            echo "Found GoogleService-Info.plist in secure files, copying to project..."
+            cp "$CM_BUILD_DIR/GoogleService-Info.plist" ios/meetgo/GoogleService-Info.plist
+          elif [ -f "ios/GoogleService-Info.plist" ]; then
+            echo "Found GoogleService-Info.plist in ios/ directory"
+            cp ios/GoogleService-Info.plist ios/meetgo/GoogleService-Info.plist
+          elif [ -f "ios/meetgo/GoogleService-Info.plist" ]; then
+            echo "GoogleService-Info.plist already in correct location"
+          else
             echo "WARNING: GoogleService-Info.plist not found. Firebase features may not work."
             echo "Please add GoogleService-Info.plist as a secure file in Codemagic settings."
-          else
-            echo "GoogleService-Info.plist found successfully"
           fi
+          
+      - name: Verify build configuration
+        script: |
+          cd ios
+          echo "=== Build Configuration Verification ==="
+          echo "Bundle Version: $(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" meetgo/Info.plist)"
+          echo "Bundle Short Version: $(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" meetgo/Info.plist)"
+          echo "Bundle Identifier: $(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" meetgo/Info.plist)"
+          
+          # Check project.pbxproj for consistency
+          echo "Project CURRENT_PROJECT_VERSION:"
+          grep "CURRENT_PROJECT_VERSION" meetgo.xcodeproj/project.pbxproj | head -5
           
       - name: Build ipa for distribution
         script: |
           xcode-project build-ipa \
             --workspace "ios/meetgo.xcworkspace" \
             --scheme "meetgo"
+            
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+      
     publishing:
       email:
         recipients:
