@@ -44,7 +44,7 @@ workflows:
           
           # Set new marketing version (must be higher than 3.0.0)
           # You can change this to whatever version you want (e.g., 3.1.0, 4.0.0, etc.)
-          NEW_MARKETING_VERSION="3.2.0"
+          NEW_MARKETING_VERSION="3.3.0"
           echo "Setting new marketing version to: $NEW_MARKETING_VERSION"
           
           # Update marketing version in Info.plist
@@ -68,8 +68,8 @@ workflows:
           NEW_BUILD_NUMBER=$((LATEST_BUILD_NUMBER + 1))
           
           # Ensure minimum build number is higher than current App Store version
-          if [ "$NEW_BUILD_NUMBER" -le 15 ]; then
-            NEW_BUILD_NUMBER=16
+          if [ "$NEW_BUILD_NUMBER" -le 16 ]; then
+            NEW_BUILD_NUMBER=17
           fi
           
           echo "New build number will be: $NEW_BUILD_NUMBER"
@@ -101,12 +101,36 @@ workflows:
           else
             echo "Warning: Could not verify MARKETING_VERSION update in project.pbxproj"
           fi
-          
+
       - name: Load Firebase configuration
         script: |
           #!/usr/bin/env sh
           set -e # exit on first failed command
-          echo $IOS_FIREBASE_SECRET > $CM_BUILD_DIR/ios/GoogleService-Info.plist
+          
+          echo "Loading Firebase configuration..."
+          
+          # Ensure the ios directory exists
+          mkdir -p $CM_BUILD_DIR/ios
+          
+          # Write the Firebase config file
+          echo "$IOS_FIREBASE_SECRET" > $CM_BUILD_DIR/ios/GoogleService-Info.plist
+          
+          # Verify the file was created and has content
+          if [ -f "$CM_BUILD_DIR/ios/GoogleService-Info.plist" ]; then
+            echo "✅ GoogleService-Info.plist created successfully"
+            echo "File size: $(wc -c < $CM_BUILD_DIR/ios/GoogleService-Info.plist) bytes"
+            echo "First few lines:"
+            head -5 $CM_BUILD_DIR/ios/GoogleService-Info.plist
+          else
+            echo "❌ Failed to create GoogleService-Info.plist"
+            exit 1
+          fi
+          
+          # Also copy to the meetgo subdirectory if it exists
+          if [ -d "$CM_BUILD_DIR/ios/meetgo" ]; then
+            cp $CM_BUILD_DIR/ios/GoogleService-Info.plist $CM_BUILD_DIR/ios/meetgo/
+            echo "✅ Also copied to ios/meetgo/ directory"
+          fi
           
       - name: Verify build configuration
         script: |
