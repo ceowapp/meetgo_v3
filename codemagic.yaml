@@ -33,7 +33,7 @@ workflows:
         script: |
           # Fetch signing files from App Store Connect
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_DEVELOPMENT \
+            --type IOS_APP_STORE \
             --create
           
           # Set up code signing settings
