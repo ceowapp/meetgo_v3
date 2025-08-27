@@ -31,14 +31,14 @@ workflows:
         script: xcode-project use-profiles --project ios/*.xcodeproj
       - name: Increment build number
         script: |
-          cd $CM_BUILD_DIR
+          cd ios
           LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID")
-          agvtool new-version -all $(($LATEST_BUILD_NUMBER + 1))
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(($LATEST_BUILD_NUMBER + 1))" meetgo/Info.plist
       - name: Build ipa for distribution
         script: |
           xcode-project build-ipa \
-            --workspace "$CM_BUILD_DIR/$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME"
+            --workspace "ios/meetgo.xcworkspace" \
+            --scheme "meetgo"
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
