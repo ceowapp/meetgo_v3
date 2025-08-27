@@ -18,16 +18,32 @@ workflows:
         TEAM_ID: "M73GARWH95"
       xcode: 16.2
       cocoapods: default
-      ios_signing:
-        provisioning_profiles:
-          - Provisioning Profile
-        certificates:
-          - IOS Certificate 1.0.0
     scripts:
       - name: Install dependencies
         script: |
           npm install && npx patch-package
           cd ios && pod install && cd ..
+          
+      - name: Set up code signing
+        script: |
+          # Initialize keychain for Codemagic
+          keychain initialize
+          
+          # Fetch and install signing files from App Store Connect
+          # Use IOS_APP_STORE since you're using App Store Connect for provisioning
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+            
+          # Apply code signing settings to Xcode project
+          xcode-project use-profiles
+          
+          # Verify setup
+          echo "Available certificates:"
+          security find-identity -v -p codesigning
+          
+          echo "Available provisioning profiles:"
+          find ~/Library/MobileDevice/Provisioning\ Profiles/ -name "*.mobileprovision" -exec basename {} \; 2>/dev/null || echo "No profiles found"
           
       - name: Update Pod targets and Swift optimization
         script: |
@@ -56,7 +72,7 @@ workflows:
           -scheme "$XCODE_SCHEME" \
           -configuration Release
           
-          # Build archive with automatic signing
+          # Build archive for App Store
           xcodebuild \
           -workspace "$XCODE_WORKSPACE" \
           -scheme "$XCODE_SCHEME" \
@@ -65,27 +81,22 @@ workflows:
           -archivePath build/meetgo.xcarchive \
           IPHONEOS_DEPLOYMENT_TARGET=15.5 \
           DEVELOPMENT_TEAM="$TEAM_ID" \
+          CODE_SIGN_STYLE=Manual \
           SWIFT_OPTIMIZATION_LEVEL="-Onone" \
-          CODE_SIGN_STYLE=Automatic \
-          -allowProvisioningUpdates \
           archive | tee xcodebuild.log
           
           # Check if archive was created
           if [ -d "build/meetgo.xcarchive" ]; then
             echo "Archive created successfully"
             
-            # Export with automatic signing
-            xcodebuild \
-            -exportArchive \
-            -archivePath build/meetgo.xcarchive \
-            -exportPath build/ios \
-            -exportOptionsPlist <(cat << EOF
+            # Create exportOptions.plist for App Store distribution
+            cat > ios/exportOptions.plist << EOL
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
               <key>method</key>
-              <string>development</string>
+              <string>app-store</string>
               <key>teamID</key>
               <string>$TEAM_ID</string>
               <key>signingStyle</key>
@@ -100,9 +111,17 @@ workflows:
               <false/>
           </dict>
           </plist>
-          EOF
-          ) \
-            -allowProvisioningUpdates
+          EOL
+            
+            echo "Generated exportOptions.plist:"
+            cat ios/exportOptions.plist
+            
+            # Export the archive
+            xcodebuild \
+            -exportArchive \
+            -archivePath build/meetgo.xcarchive \
+            -exportOptionsPlist ios/exportOptions.plist \
+            -exportPath build/ios
             
             if [ $? -eq 0 ]; then
               echo "Export successful"
@@ -120,6 +139,11 @@ workflows:
       - build/ios/*.ipa
       - xcodebuild.log
     publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - Internal Testers
       email:
         recipients:
           - your.email@example.com
