@@ -52,14 +52,14 @@ workflows:
         script: |
           # Add GoogleService-Info.plist to fix Firebase configuration
           # Make sure you have uploaded GoogleService-Info.plist as a secure file in Codemagic
-          echo "Adding GoogleService-Info.plist to ios/meetgo/"
+          echo "Adding GoogleService-Info.plist to ios/"
           
           # If you have the file as a secure file in Codemagic:
           # cp $CM_BUILD_DIR/GoogleService-Info.plist ios/meetgo/GoogleService-Info.plist
           
           # Or if it's in your repository but gitignored, you might need to create it:
           # For now, let's check if it exists
-          if [ ! -f "ios/meetgo/GoogleService-Info.plist" ]; then
+          if [ ! -f "ios/GoogleService-Info.plist" ]; then
             echo "WARNING: GoogleService-Info.plist not found. Firebase features may not work."
             echo "Please add GoogleService-Info.plist as a secure file in Codemagic settings."
           else
