@@ -102,7 +102,7 @@ workflows:
             echo "Warning: Could not verify MARKETING_VERSION update in project.pbxproj"
           fi
           
-       - name: Load Firebase configuration
+      - name: Load Firebase configuration
         script: |
           #!/usr/bin/env sh
           set -e # exit on first failed command
