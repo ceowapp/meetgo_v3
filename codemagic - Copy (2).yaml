@@ -4,7 +4,7 @@ workflows:
     instance_type: mac_mini_m1
     max_build_duration: 120
     integrations:
-      app_store_connect: Key Test
+      app_store_connect: Meetgo IOS
     environment:
       groups:
         - development
@@ -12,7 +12,7 @@ workflows:
         XCODE_WORKSPACE: "ios/meetgo.xcworkspace"
         XCODE_SCHEME: "meetgo"
         IPHONEOS_DEPLOYMENT_TARGET: "15.5"
-        APP_STORE_CONNECT_KEY_IDENTIFIER: "BD46Y2FML8"
+        APP_STORE_CONNECT_KEY_IDENTIFIER: "96D6FATL37"
         APP_STORE_CONNECT_ISSUER_ID: "c76b0f32-e565-4479-90c9-edc2487340a7"
         BUNDLE_ID: "app.meetgo.vn"
         TEAM_ID: "M73GARWH95"
@@ -22,7 +22,7 @@ workflows:
         provisioning_profiles:
           - Provisioning Profile
         certificates:
-          - IOS Certificate
+          - IOS Certificate 1.0.0
     scripts:
       - name: Install dependencies
         script: |
