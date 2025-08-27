@@ -31,9 +31,27 @@ workflows:
       - name: Set up provisioning profiles settings on Xcode project
         script: xcode-project use-profiles --project ios/*.xcodeproj
         
-      - name: Increment build number
+      - name: Update version numbers
         script: |
           cd ios
+          
+          # First, let's check current versions
+          CURRENT_MARKETING_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" meetgo/Info.plist 2>/dev/null || echo "1.0")
+          CURRENT_BUILD_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" meetgo/Info.plist 2>/dev/null || echo "1")
+          
+          echo "Current marketing version (CFBundleShortVersionString): $CURRENT_MARKETING_VERSION"
+          echo "Current build version (CFBundleVersion): $CURRENT_BUILD_VERSION"
+          
+          # Set new marketing version (must be higher than 3.0.0)
+          # You can change this to whatever version you want (e.g., 3.1.0, 4.0.0, etc.)
+          NEW_MARKETING_VERSION="3.1.0"
+          echo "Setting new marketing version to: $NEW_MARKETING_VERSION"
+          
+          # Update marketing version in Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $NEW_MARKETING_VERSION" meetgo/Info.plist
+          
+          # Update marketing version in project.pbxproj
+          sed -i '' "s/MARKETING_VERSION = [^;]*/MARKETING_VERSION = $NEW_MARKETING_VERSION/g" meetgo.xcodeproj/project.pbxproj
           
           # Get the latest build number from App Store Connect
           echo "Fetching latest build number from App Store Connect..."
@@ -43,10 +61,10 @@ workflows:
           # Validate that we got a valid number
           if ! [[ "$LATEST_BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
             echo "Error: Could not fetch valid build number. Using fallback method."
-            LATEST_BUILD_NUMBER=14  # Based on your error message
+            LATEST_BUILD_NUMBER=14  # Based on your previous error message
           fi
           
-          # Calculate new build number (ensure it's higher than 14)
+          # Calculate new build number (start fresh for new marketing version)
           NEW_BUILD_NUMBER=$((LATEST_BUILD_NUMBER + 1))
           
           # Ensure minimum build number is higher than current App Store version
@@ -56,23 +74,32 @@ workflows:
           
           echo "New build number will be: $NEW_BUILD_NUMBER"
           
-          # Update Info.plist with new build number
+          # Update build number in Info.plist
           echo "Updating CFBundleVersion in Info.plist..."
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $NEW_BUILD_NUMBER" meetgo/Info.plist
           
-          # Verify the update
-          UPDATED_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" meetgo/Info.plist)
-          echo "Successfully updated CFBundleVersion to: $UPDATED_VERSION"
-          
-          # Also update the project.pbxproj file to ensure consistency
+          # Update build number in project.pbxproj
           echo "Updating project.pbxproj with new build number..."
           sed -i '' "s/CURRENT_PROJECT_VERSION = [0-9]*/CURRENT_PROJECT_VERSION = $NEW_BUILD_NUMBER/g" meetgo.xcodeproj/project.pbxproj
           
-          # Verify project.pbxproj update
+          # Verify all updates
+          UPDATED_MARKETING_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" meetgo/Info.plist)
+          UPDATED_BUILD_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" meetgo/Info.plist)
+          
+          echo "Successfully updated CFBundleShortVersionString to: $UPDATED_MARKETING_VERSION"
+          echo "Successfully updated CFBundleVersion to: $UPDATED_BUILD_VERSION"
+          
+          # Verify project.pbxproj updates
           if grep -q "CURRENT_PROJECT_VERSION = $NEW_BUILD_NUMBER" meetgo.xcodeproj/project.pbxproj; then
             echo "Successfully updated CURRENT_PROJECT_VERSION in project.pbxproj"
           else
-            echo "Warning: Could not verify project.pbxproj update"
+            echo "Warning: Could not verify CURRENT_PROJECT_VERSION update in project.pbxproj"
+          fi
+          
+          if grep -q "MARKETING_VERSION = $NEW_MARKETING_VERSION" meetgo.xcodeproj/project.pbxproj; then
+            echo "Successfully updated MARKETING_VERSION in project.pbxproj"
+          else
+            echo "Warning: Could not verify MARKETING_VERSION update in project.pbxproj"
           fi
           
       - name: Add GoogleService-Info.plist
@@ -97,14 +124,18 @@ workflows:
       - name: Verify build configuration
         script: |
           cd ios
-          echo "=== Build Configuration Verification ==="
-          echo "Bundle Version: $(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" meetgo/Info.plist)"
-          echo "Bundle Short Version: $(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" meetgo/Info.plist)"
+          echo "=== Final Build Configuration Verification ==="
+          echo "Marketing Version (CFBundleShortVersionString): $(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" meetgo/Info.plist)"
+          echo "Build Version (CFBundleVersion): $(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" meetgo/Info.plist)"
           echo "Bundle Identifier: $(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" meetgo/Info.plist)"
           
           # Check project.pbxproj for consistency
-          echo "Project CURRENT_PROJECT_VERSION:"
-          grep "CURRENT_PROJECT_VERSION" meetgo.xcodeproj/project.pbxproj | head -5
+          echo ""
+          echo "Project Configuration:"
+          echo "MARKETING_VERSION in project.pbxproj:"
+          grep "MARKETING_VERSION" meetgo.xcodeproj/project.pbxproj | head -3
+          echo "CURRENT_PROJECT_VERSION in project.pbxproj:"
+          grep "CURRENT_PROJECT_VERSION" meetgo.xcodeproj/project.pbxproj | head -3
           
       - name: Build ipa for distribution
         script: |
