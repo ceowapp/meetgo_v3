@@ -36,20 +36,8 @@ workflows:
             --type IOS_DEVELOPMENT \
             --create
           
-          # Get the actual profile name
-          ACTUAL_PROFILE_NAME=$(find ~/Library/MobileDevice/Provisioning\ Profiles/ -type f -name "*.mobileprovision" -exec grep -l "$BUNDLE_ID" {} \; | head -n 1 | xargs basename | sed 's/\.mobileprovision//')
-          
-          echo "Found provisioning profile: $ACTUAL_PROFILE_NAME"
-          
-          # Set the profile name as an environment variable for later use
-          echo "ACTUAL_PROFILE_NAME=$ACTUAL_PROFILE_NAME" >> $CM_ENV
-          
-          # List available provisioning profiles for debugging
-          echo "Available provisioning profiles:"
-          ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
-          
           # Set up code signing settings
-          xcode-project use-profiles --warn-only
+          xcode-project use-profiles
           
       - name: Update Pod targets and Swift optimization
         script: |
@@ -79,7 +67,7 @@ workflows:
               <key>provisioningProfiles</key>
               <dict>
                   <key>$BUNDLE_ID</key>
-                  <string>provisioning_dev</string>
+                  <string>Provisioning Profile</string>
               </dict>
               <key>signingCertificate</key>
               <string>Apple Development</string>
@@ -97,7 +85,6 @@ workflows:
           </plist>
           EOL
           
-          # Display the generated plist for debugging
           echo "Generated exportOptions.plist:"
           cat ios/exportOptions.plist
           
