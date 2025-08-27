@@ -28,7 +28,7 @@ workflows:
           npm install && npx patch-package
           cd ios && pod install && cd ..
       - name: Set up provisioning profiles settings on Xcode project
-        script: xcode-project use-profiles
+        script: xcode-project use-profiles --project ios/*.xcodeproj
       - name: Increment build number
         script: |
           cd $CM_BUILD_DIR
