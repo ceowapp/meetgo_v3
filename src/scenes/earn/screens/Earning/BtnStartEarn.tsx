@@ -118,6 +118,7 @@ const BtnStartEarn: FC<EarnProps> = ({
     
     return () => {
       // Cleanup ad state
+      earningEndedRef.current = false;
       showingAdRef.current = false;
       setIsAdLoading(false);
       setAdShownCount(0);
@@ -134,49 +135,57 @@ const BtnStartEarn: FC<EarnProps> = ({
 
   const showCountdownAd = useCallback(async () => {
     if (showingAdRef.current || adShownCount >= 3 || !isFocus) {
-      console.log('Ad already showing, max ads reached, or screen not focused');
+      console.log(`Ad blocked: showing=${showingAdRef.current}, count=${adShownCount}/3, focused=${isFocus}`);
       return;
     }
     
     console.log(`Attempting to show countdown ad ${adShownCount + 1}/3...`);
     showingAdRef.current = true;
     setIsAdLoading(true);
-
+  
     const cleanup = () => {
+      console.log(`Cleaning up ad ${adShownCount + 1}`);
       setIsAdLoading(false);
       showingAdRef.current = false;
     };
-
+  
     try {
-      // Load and show ad with proper error handling
+      const loadTimeout = setTimeout(() => {
+        console.log(`Ad ${adShownCount + 1} load timeout`);
+        cleanup();
+      }, 5000);
+  
       InterstitialAdsService.load().onLoad(() => {
+        clearTimeout(loadTimeout);
+        
         if (!isFocus || earningEndedRef.current) {
-          console.log('Screen not focused or earning ended; aborting ad show');
+          console.log(`Ad ${adShownCount + 1} load success but conditions changed: focused=${isFocus}, ended=${earningEndedRef.current}`);
           cleanup();
           return;
         }
         
         if (InterstitialAdsService.show()) {
-          console.log(`Countdown ad ${adShownCount + 1}/3 displayed successfully`);
+          console.log(`Ad ${adShownCount + 1}/3 displayed successfully`);
           setAdShownCount(prev => prev + 1);
           
           InterstitialAdsService.onClose(() => {
-            console.log('Countdown ad closed');
+            console.log(`Ad ${adShownCount + 1} closed`);
             cleanup();
-            // Preload next ad for future display
-            InterstitialAdsService.load();
+            if (adShownCount + 1 < 3) {
+              InterstitialAdsService.load();
+            }
           });
         } else {
-          console.log('Ad failed to show after load');
+          console.log(`Ad ${adShownCount + 1} failed to show after load`);
           cleanup();
         }
       });
     } catch (error) {
-      console.log('Error during ad load/show:', error);
+      console.log(`Error during ad ${adShownCount + 1} load/show:`, error);
       cleanup();
     }
   }, [adShownCount, isFocus]);
-
+  
   const evaluateAdTrigger = useCallback(() => {
     if (!shouldEvaluateAds || !dataEarn?.countdownTime) {
       return;
@@ -208,11 +217,11 @@ const BtnStartEarn: FC<EarnProps> = ({
 
     // Show ads in order at wider ranges to avoid missing ticks
     let shouldShowAd = false;
-    if (adShownCount === 0 && percentageRemaining <= 90 && percentageRemaining > 80) {
+    if (adShownCount === 0 && percentageRemaining <= 95 && percentageRemaining > 75) {
       shouldShowAd = true;
-    } else if (adShownCount === 1 && percentageRemaining <= 60 && percentageRemaining > 40) {
+    } else if (adShownCount === 1 && percentageRemaining <= 65 && percentageRemaining > 35) {
       shouldShowAd = true;
-    } else if (adShownCount === 2 && percentageRemaining <= 20 && percentageRemaining > 5) {
+    } else if (adShownCount === 2 && percentageRemaining <= 30 && percentageRemaining > 0) {
       shouldShowAd = true;
     }
     if (shouldShowAd && secondsLeft > 0) {
